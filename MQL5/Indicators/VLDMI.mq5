@@ -8,11 +8,13 @@
 //|   3. VI   = SD / ASD                                ... ボラ比率  |
 //|   4. N    = int(InpBasePeriod / VI) を                             |
 //|             [InpMinPeriod, InpMaxPeriod] に制限     ... 可変期間  |
-//|   5. VLDMI = N 本分の上昇幅合計 / (上昇幅合計 + 下落幅合計) * 100    |
+//|   5. VLDMI = 期間 N の RSI                                        |
+//|        ワイルダー : MT4/MT5 標準 RSI と同じ平滑化（期間 N の値を使用）  |
+//|        単純合計   : N 本分の上昇幅 / (上昇幅 + 下落幅) * 100           |
 //|   ボラティリティが高いほど N が短くなり、低いほど長くなる。           |
 //+------------------------------------------------------------------+
 #property copyright   "mitofuworks"
-#property version     "1.10"
+#property version     "1.20"
 #property description "Variable Length Dynamic Momentum Index (VLDMI)"
 #property description "ボラティリティに応じて計算期間が変わるRSI"
 
@@ -20,6 +22,13 @@
 #property indicator_minimum 0
 #property indicator_maximum 100
 #property indicator_buffers 3
+
+//--- RSI の計算方法
+enum ENUM_RSI_MODE
+  {
+   RSI_WILDER = 0, // ワイルダー（標準RSIと同じ）
+   RSI_SIMPLE = 1  // 単純合計（反応が速く 0/100 に張り付きやすい）
+  };
 #property indicator_plots   2
 
 #property indicator_label1  "VLDMI"
@@ -39,6 +48,7 @@ input int    InpStdDevAvgPeriod = 10;    // 標準偏差の平均期間
 input int    InpBasePeriod      = 14;    // 基準期間
 input int    InpMinPeriod       = 5;     // 最小期間
 input int    InpMaxPeriod       = 30;    // 最大期間
+input ENUM_RSI_MODE InpRsiMode  = RSI_WILDER; // RSIの計算方法
 input group "レベルライン（-1 で非表示）"
 input double          InpLevel1     = 85.0;       // レベル1
 input double          InpLevel2     = 75.0;       // レベル2
@@ -62,6 +72,11 @@ int      g_sdPeriod, g_avgPeriod, g_basePeriod, g_minPeriod, g_maxPeriod;
 int      g_firstBar;
 datetime g_lastAlertBar = 0;
 
+//--- ワイルダー平滑化の状態（期間ごとの平均上昇幅・平均下落幅）
+double   g_avgUp[], g_avgDn[];   // g_stateBar 時点で確定した値
+double   g_tmpUp[], g_tmpDn[];   // 計算中のバーの値
+int      g_stateBar = -1;
+
 //+------------------------------------------------------------------+
 int OnInit()
   {
@@ -70,6 +85,11 @@ int OnInit()
    g_basePeriod = MathMax(InpBasePeriod, 1);
    g_minPeriod  = MathMax(InpMinPeriod, 1);
    g_maxPeriod  = MathMax(InpMaxPeriod, g_minPeriod);
+
+   ArrayResize(g_avgUp, g_maxPeriod + 1);
+   ArrayResize(g_avgDn, g_maxPeriod + 1);
+   ArrayResize(g_tmpUp, g_maxPeriod + 1);
+   ArrayResize(g_tmpDn, g_maxPeriod + 1);
 
    SetIndexBuffer(0, BufVLDMI,  INDICATOR_DATA);
    SetIndexBuffer(1, BufPeriod, INDICATOR_DATA);
@@ -126,10 +146,15 @@ int OnCalculate(const int rates_total,
       ArrayInitialize(BufStdDev, 0.0);
       PlotIndexSetInteger(0, PLOT_DRAW_BEGIN, g_firstBar);
       PlotIndexSetInteger(1, PLOT_DRAW_BEGIN, g_firstBar);
+      g_stateBar = -1;
       start = sdStart;
      }
    else
+     {
       start = prev_calculated - 1;
+      if(InpRsiMode == RSI_WILDER && g_stateBar >= 0)
+         start = MathMin(start, g_stateBar + 1);
+     }
 
    for(int i = start; i < rates_total && !IsStopped(); i++)
      {
@@ -160,13 +185,28 @@ int OnCalculate(const int rates_total,
       if(n < g_minPeriod) n = g_minPeriod;
       if(n > g_maxPeriod) n = g_maxPeriod;
 
-      //--- 5. N 本分でのRSI計算
+      //--- 5. 期間 N のRSI
       double up = 0.0, dn = 0.0;
-      for(int k = 0; k < n; k++)
+      if(InpRsiMode == RSI_WILDER)
         {
-         double diff = price[i - k] - price[i - k - 1];
-         if(diff > 0.0) up += diff;
-         else           dn -= diff;
+         UpdateWilder(i, price);
+         up = g_tmpUp[n];
+         dn = g_tmpDn[n];
+         if(i < rates_total - 1)   // 確定足のみ状態を確定させる
+           {
+            ArrayCopy(g_avgUp, g_tmpUp);
+            ArrayCopy(g_avgDn, g_tmpDn);
+            g_stateBar = i;
+           }
+        }
+      else
+        {
+         for(int k = 0; k < n; k++)
+           {
+            double diff = price[i - k] - price[i - k - 1];
+            if(diff > 0.0) up += diff;
+            else           dn -= diff;
+           }
         }
       BufVLDMI[i]  = (up + dn > 0.0) ? 100.0 * up / (up + dn) : 50.0;
       BufPeriod[i] = n;
@@ -178,6 +218,40 @@ int OnCalculate(const int rates_total,
    else
       CheckAlert(rates_total);
    return(rates_total);
+  }
+
+//+------------------------------------------------------------------+
+//| 全期間（最小〜最大）のワイルダー平均をバー i まで進める             |
+//| 標準RSIと同様、初回は単純平均で初期化し以降は                       |
+//|   avg = (前回avg * (p - 1) + 今回の値) / p                        |
+//+------------------------------------------------------------------+
+void UpdateWilder(const int i, const double &price[])
+  {
+   double diff = price[i] - price[i - 1];
+   double u = (diff > 0.0) ?  diff : 0.0;
+   double d = (diff < 0.0) ? -diff : 0.0;
+   bool   seed = (g_stateBar != i - 1);
+
+   for(int p = g_minPeriod; p <= g_maxPeriod; p++)
+     {
+      if(seed)
+        {
+         double su = 0.0, sd = 0.0;
+         for(int k = 0; k < p; k++)
+           {
+            double df = price[i - k] - price[i - k - 1];
+            if(df > 0.0) su += df;
+            else         sd -= df;
+           }
+         g_tmpUp[p] = su / p;
+         g_tmpDn[p] = sd / p;
+        }
+      else
+        {
+         g_tmpUp[p] = (g_avgUp[p] * (p - 1) + u) / p;
+         g_tmpDn[p] = (g_avgDn[p] * (p - 1) + d) / p;
+        }
+     }
   }
 
 //+------------------------------------------------------------------+
