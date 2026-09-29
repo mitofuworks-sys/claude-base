@@ -12,7 +12,7 @@
 //|   ボラティリティが高いほど N が短くなり、低いほど長くなる。           |
 //+------------------------------------------------------------------+
 #property copyright   "mitofuworks"
-#property version     "1.00"
+#property version     "1.10"
 #property description "Variable Length Dynamic Momentum Index (VLDMI)"
 #property description "ボラティリティに応じて計算期間が変わるRSI"
 
@@ -33,13 +33,23 @@
 #property indicator_type2   DRAW_NONE
 
 //--- 入力パラメータ
+input group "計算"
 input int    InpStdDevPeriod    = 5;     // 標準偏差の期間
 input int    InpStdDevAvgPeriod = 10;    // 標準偏差の平均期間
 input int    InpBasePeriod      = 14;    // 基準期間
 input int    InpMinPeriod       = 5;     // 最小期間
 input int    InpMaxPeriod       = 30;    // 最大期間
-input double InpOverbought      = 70.0;  // 買われすぎレベル
-input double InpOversold        = 30.0;  // 売られすぎレベル
+input group "レベルライン（-1 で非表示）"
+input double          InpLevel1     = 85.0;       // レベル1
+input double          InpLevel2     = 75.0;       // レベル2
+input double          InpLevel3     = 50.0;       // レベル3
+input double          InpLevel4     = 25.0;       // レベル4
+input double          InpLevel5     = 15.0;       // レベル5
+input color           InpLevelColor = clrSilver;  // レベルの色
+input ENUM_LINE_STYLE InpLevelStyle = STYLE_DOT;  // レベルの線種
+input group "通知"
+input double InpOverbought      = 85.0;  // 上側の通知レベル（買われすぎ）
+input double InpOversold        = 15.0;  // 下側の通知レベル（売られすぎ）
 input bool   InpAlert           = false; // レベルクロスでアラート
 input bool   InpPush            = false; // レベルクロスでプッシュ通知
 
@@ -69,12 +79,24 @@ int OnInit()
    PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
 
    IndicatorSetInteger(INDICATOR_DIGITS, 2);
-   IndicatorSetInteger(INDICATOR_LEVELS, 3);
-   IndicatorSetDouble(INDICATOR_LEVELVALUE, 0, InpOverbought);
-   IndicatorSetDouble(INDICATOR_LEVELVALUE, 1, 50.0);
-   IndicatorSetDouble(INDICATOR_LEVELVALUE, 2, InpOversold);
-   IndicatorSetInteger(INDICATOR_LEVELCOLOR, clrSilver);
-   IndicatorSetInteger(INDICATOR_LEVELSTYLE, STYLE_DOT);
+   //--- レベルライン（0〜100 の範囲外は非表示）
+   double levels[5];
+   levels[0] = InpLevel1;
+   levels[1] = InpLevel2;
+   levels[2] = InpLevel3;
+   levels[3] = InpLevel4;
+   levels[4] = InpLevel5;
+   int count = 0;
+   for(int j = 0; j < 5; j++)
+      if(levels[j] >= 0.0 && levels[j] <= 100.0)
+         levels[count++] = levels[j];
+   IndicatorSetInteger(INDICATOR_LEVELS, count);
+   for(int j = 0; j < count; j++)
+     {
+      IndicatorSetDouble(INDICATOR_LEVELVALUE, j, levels[j]);
+      IndicatorSetInteger(INDICATOR_LEVELCOLOR, j, InpLevelColor);
+      IndicatorSetInteger(INDICATOR_LEVELSTYLE, j, InpLevelStyle);
+     }
 
    IndicatorSetString(INDICATOR_SHORTNAME,
                       StringFormat("VLDMI(%d,%d,%d,%d-%d)", g_sdPeriod, g_avgPeriod,
