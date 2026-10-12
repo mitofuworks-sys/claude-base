@@ -69,7 +69,7 @@
 
 | 日 | やること | ファイル |
 |---|---|---|
-| 1日目 | 第1話を公開。X投稿①。コンテストのタグ「#自動化したいこと」を付ける（締切 11/1 23:59） | `articles/01_free_ep1.md` |
+| 1日目 | 第1話を公開。X投稿① | `articles/01_free_ep1.md` |
 | 2日目 | X投稿② | `x_posts.md` |
 | 3日目 | 第2話を公開。X投稿③ | `articles/02_free_ep2.md` |
 | 4日目 | X投稿④ | |
@@ -147,7 +147,6 @@
 - [note、有料コンテンツの動向分析結果を公開（マナミナ）](https://manamina.valuesccg.com/articles/4766)
 - [コンテンツを販売する際に引かれる手数料（note公式ヘルプ）](https://www.help-note.com/hc/ja/articles/360011358873)
 - [タイトルのポイント（note公式ヘルプ）](https://www.help-note.com/hc/ja/articles/900005614143)
-- [Manus×note 投稿コンテスト「#自動化したいこと」（公募ガイド）](https://koubo.jp/contest/388386)
 - [Xのインプレッション減少について（外部リンクの扱い）](https://yoshikazunomori.com/blog/digitalmarketing/x-impressions-decreased/)
 - [なぜnoteの有料記事は売れないのか？（THE BOSS）](https://theboss.jp/why-note-paid-articles-do-not-sell/)
 - [noteのAI記事販売｜売れるかどうかは最後の仕上げで決まる](https://atsoho.com/blog/note-ai-efficiency-sell)
