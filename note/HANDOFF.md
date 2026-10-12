@@ -15,7 +15,14 @@ noteの連載「AIに5万円渡して『稼いで』と頼んだ記録」とし�
 - noteに貼る用のテキスト：`note/paste/`（第1話のタイトルと本文、マガジンの説明、見出し画像の指示文）
 - X投稿：`note/x_posts.md`（30日分。依頼主の一人称）
 - 進み具合：まだ何も公開していない。次は1日目（第1話の公開、無料マガジン作成、X投稿①）
-- 今やろうとしていたこと：第1話の見出し画像を、Claude in ChromeでChatGPTに作らせる。指示文は `note/paste/01_cover_prompt.txt`
+- 第1話の見出し画像：依頼主がChatGPTで作っている（指示文は `note/paste/01_cover_prompt.txt`）。文字が崩れていたら、直し方を判断する
+- ChatGPTによる記事レビュー：未実施。依頼主がChatGPTに貼る用のファイルは `note/review/chatgpt_prompt.md`。結果を貼られたら、指摘ごとに直すかどうかを判断して修正する
+
+## ファイルの読む順番
+
+1. `note/README.md`：ロードマップ（なぜこの戦略か、30日の予定、数字の記録表、数字ごとの打ち手）
+2. `note/articles/`：記事本体
+3. `note/x_posts.md`、`note/hashtags.md`、`note/paste/`：投稿用の素材
 
 ## 依頼主との約束（必ず守る）
 
